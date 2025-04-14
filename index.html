@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatGPT Web Chatbot</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+
+    #chat-box {
+      border: 1px solid #ccc;
+      padding: 10px;
+      height: 400px;
+      overflow-y: auto;
+      background: white;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+      white-space: pre-wrap; /* This ensures line breaks are respected */
+      word-wrap: break-word;
+    }
+
+    .message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      max-width: 80%;
+      display: block; /* Make each message appear on a new line */
+    }
+
+    .user {
+      background-color: #e0f7fa;
+      color: #00695c;
+      text-align: left;
+    }
+
+    .bot {
+      background-color: #c8e6c9;
+      color: #388e3c;
+      text-align: left;
+    }
+
+    #input-area {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    #message-input {
+      flex: 1;
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    #send-btn, #mic-btn {
+      padding: 8px 16px;
+      margin-left: 8px;
+      border: none;
+      cursor: pointer;
+      background-color: #00796b;
+      color: white;
+      border-radius: 5px;
+    }
+
+    #send-btn:hover, #mic-btn:hover {
+      background-color: #004d40;
+    }
+
+    #mic-btn {
+      background-color: #ff7043;
+    }
+
+    #mic-btn:hover {
+      background-color: #d84e2b;
+    }
+
+    #image-input {
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      padding: 5px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>ChatGPT Web Chatbot</h2>
+  <div id="chat-box"></div>
+
+  <!-- Input area for text, mic, and image upload -->
+  <div id="input-area">
+    <input id="message-input" placeholder="Type your message..." />
+    <button id="send-btn">Send</button>
+    <button id="mic-btn">🎤 Speak</button>
+  </div>
+  
+  <!-- File input for image upload -->
+  <input type="file" id="image-input" accept="image/*" />
+
+  <script>
+    const chatBox = document.getElementById('chat-box');
+    const input = document.getElementById('message-input');
+    const button = document.getElementById('send-btn');
+    const micBtn = document.getElementById('mic-btn');
+    const imageInput = document.getElementById('image-input');
+
+    // Speech Recognition setup
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    // Handle Speech Input
+    micBtn.addEventListener('click', () => {
+      recognition.start();
+    });
+
+    recognition.onresult = (event) => {
+      const voiceInput = event.results[0][0].transcript;
+      input.value = voiceInput;
+      sendMessage(); // auto-send on speech result
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      alert("🎤 Mic error: " + event.error);
+    };
+
+    // Send message from input field
+    async function sendMessage() {
+      const message = input.value.trim();
+      if (!message) return;
+
+      // Display user message in chatbox
+      chatBox.innerHTML += `<div class="message user"><strong>You:</strong> ${message}</div>`;
+      input.value = ''; // Clear input field
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      // Call backend to get bot response
+      try {
+        const response = await fetch('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+        // Display bot response in chatbox
+        chatBox.innerHTML += `<div class="message bot"><strong>Bot:</strong> ${data.reply}</div>`;
+      } catch (error) {
+        chatBox.innerHTML += `<div class="message bot"><strong>Bot:</strong> ⚠️ Bot didn't respond.</div>`;
+      }
+
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Handle Enter key press for text input
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    // Handle Image Upload and Preview
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        chatBox.innerHTML += `
+          <div class="message user">
+            <strong>You (Image):</strong><br/>
+            <img src="${e.target.result}" alt="User uploaded image" />
+          </div>
+        `;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    // Send text message on button click
+    button.addEventListener('click', sendMessage);
+  </script>
+</body>
+</html>
